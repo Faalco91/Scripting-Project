@@ -126,3 +126,80 @@ EOF
     openssl x509 -in /etc/ssl/dolibarr/dolibarr.crt -noout -subject -dates -ext subjectAltName 2>/dev/null
     echo ""
 }
+
+generate_glpi_cert() {
+    echo "--- Génération certificat GLPI ---"
+    
+    mkdir -p /etc/ssl/glpi
+    
+    echo "Génération de la clé privée GLPI..."
+    openssl genpkey -algorithm RSA -out /etc/ssl/glpi/glpi.key -pkeyopt rsa_keygen_bits:4096 2>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo "OK - Clé GLPI générée"
+        chmod 600 /etc/ssl/glpi/glpi.key
+    else
+        echo "Erreur lors de la génération de la clé"
+        return 1
+    fi
+    
+    echo "Création du fichier de configuration SAN..."
+    cat > /etc/ssl/glpi/glpi.cnf <<EOF
+[req]
+default_bits = 4096
+prompt = no
+default_md = sha256
+distinguished_name = dn
+req_extensions = v3_req
+
+[dn]
+C=FR
+ST=IDF
+L=Paris
+O=Entreprise
+OU=IT
+CN=glpi.local
+
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = glpi.local
+DNS.2 = www.glpi.local
+IP.1 = 127.0.0.1
+EOF
+    
+    echo "Création de la demande de certificat (CSR)..."
+    openssl req -new -key /etc/ssl/glpi/glpi.key -out /etc/ssl/glpi/glpi.csr -config /etc/ssl/glpi/glpi.cnf 2>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo "OK - CSR créé"
+    else
+        echo "Erreur lors de la création du CSR"
+        return 1
+    fi
+    
+    echo "Signature du certificat par la CA..."
+    openssl x509 -req -in /etc/ssl/glpi/glpi.csr -CA /etc/ssl/ca/ca-cert.pem -CAkey /etc/ssl/ca/ca-key.pem -CAserial /etc/ssl/ca/serial -out /etc/ssl/glpi/glpi.crt -days 365 -sha256 -extensions v3_req -extfile /etc/ssl/glpi/glpi.cnf 2>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo "OK - Certificat GLPI signé"
+        chmod 644 /etc/ssl/glpi/glpi.crt
+    else
+        echo "Erreur lors de la signature du certificat"
+        return 1
+    fi
+    
+    echo ""
+    echo "=== Certificat GLPI créé ==="
+    echo "Fichiers générés:"
+    echo "  - Clé privée: /etc/ssl/glpi/glpi.key"
+    echo "  - CSR: /etc/ssl/glpi/glpi.csr"
+    echo "  - Certificat: /etc/ssl/glpi/glpi.crt"
+    echo ""
+    
+    openssl x509 -in /etc/ssl/glpi/glpi.crt -noout -subject -dates -ext subjectAltName 2>/dev/null
+    echo ""
+}
