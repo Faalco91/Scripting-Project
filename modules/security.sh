@@ -203,3 +203,93 @@ EOF
     openssl x509 -in /etc/ssl/glpi/glpi.crt -noout -subject -dates -ext subjectAltName 2>/dev/null
     echo ""
 }
+
+configure_apache_ssl() {
+    echo "--- Configuration Apache SSL ---"
+    
+    echo "Activation du module SSL..."
+    a2enmod ssl 2>/dev/null
+    
+    echo "Création VirtualHost Dolibarr..."
+    cat > /etc/apache2/sites-available/dolibarr-ssl.conf <<EOF
+<VirtualHost *:443>
+    ServerName dolibarr.local
+    ServerAlias www.dolibarr.local
+    
+    DocumentRoot /var/www/dolibarr/htdocs
+    
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/dolibarr/dolibarr.crt
+    SSLCertificateKeyFile /etc/ssl/dolibarr/dolibarr.key
+    SSLCertificateChainFile /etc/ssl/ca/ca-cert.pem
+    
+    SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1 -TLSv1.2
+    SSLCipherSuite HIGH:!aNULL:!MD5
+    
+    <Directory /var/www/dolibarr/htdocs>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog \${APACHE_LOG_DIR}/dolibarr-ssl-error.log
+    CustomLog \${APACHE_LOG_DIR}/dolibarr-ssl-access.log combined
+</VirtualHost>
+
+<VirtualHost *:80>
+    ServerName dolibarr.local
+    ServerAlias www.dolibarr.local
+    Redirect permanent / https://dolibarr.local/
+</VirtualHost>
+EOF
+    
+    echo "Création VirtualHost GLPI..."
+    cat > /etc/apache2/sites-available/glpi-ssl.conf <<EOF
+<VirtualHost *:443>
+    ServerName glpi.local
+    ServerAlias www.glpi.local
+    
+    DocumentRoot /var/www/glpi/public
+    
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/glpi/glpi.crt
+    SSLCertificateKeyFile /etc/ssl/glpi/glpi.key
+    SSLCertificateChainFile /etc/ssl/ca/ca-cert.pem
+    
+    SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1 -TLSv1.2
+    SSLCipherSuite HIGH:!aNULL:!MD5
+    
+    <Directory /var/www/glpi/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog \${APACHE_LOG_DIR}/glpi-ssl-error.log
+    CustomLog \${APACHE_LOG_DIR}/glpi-ssl-access.log combined
+</VirtualHost>
+
+<VirtualHost *:80>
+    ServerName glpi.local
+    ServerAlias www.glpi.local
+    Redirect permanent / https://glpi.local/
+</VirtualHost>
+EOF
+    
+    echo "Activation des sites..."
+    a2ensite dolibarr-ssl.conf 2>/dev/null
+    a2ensite glpi-ssl.conf 2>/dev/null
+    
+    echo "Rechargement Apache..."
+    systemctl reload apache2
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "=== Apache SSL configuré ==="
+        echo "Sites HTTPS actifs:"
+        echo "  - https://dolibarr.local"
+        echo "  - https://glpi.local"
+        echo ""
+    else
+        echo "Erreur lors du rechargement Apache"
+        return 1
+    fi
+}
