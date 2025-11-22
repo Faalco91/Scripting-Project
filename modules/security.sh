@@ -293,3 +293,58 @@ EOF
         return 1
     fi
 }
+
+setup_basic_auth() {
+    echo "--- Configuration authentification basique ---"
+    
+    echo "Création du fichier .htpasswd..."
+    read -p "Nom d'utilisateur [admin]: " username
+    username=${username:-admin}
+    
+    read -sp "Mot de passe: " password
+    echo
+    
+    if [ -z "$password" ]; then
+        password="Admin2025!"
+        echo "Mot de passe par défaut utilisé: Admin2025!"
+    fi
+    
+    htpasswd -cb /etc/apache2/.htpasswd "$username" "$password" 2>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo "OK - Fichier .htpasswd créé"
+        chmod 640 /etc/apache2/.htpasswd
+        chown root:www-data /etc/apache2/.htpasswd
+    else
+        echo "Erreur lors de la création du fichier .htpasswd"
+        return 1
+    fi
+    
+    echo "Configuration du VirtualHost par défaut..."
+    cat > /etc/apache2/sites-available/000-default.conf <<EOF
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
+    
+    <Directory /var/www/html>
+        AuthType Basic
+        AuthName "Zone protégée - Authentification requise"
+        AuthUserFile /etc/apache2/.htpasswd
+        Require valid-user
+    </Directory>
+    
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+    
+    echo "Rechargement Apache..."
+    systemctl reload apache2 2>/dev/null
+    
+    echo ""
+    echo "=== Authentification basique configurée ==="
+    echo "Page par défaut protégée"
+    echo "Utilisateur: $username"
+    echo "Mot de passe: $password"
+    echo ""
+}
