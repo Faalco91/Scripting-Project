@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# to do : modifier les configs et mettre les vrai data de la vm qu'on utilisera mot de passe le nom etc ....
 create_ca() {
     echo "--- Création de la CA ---"
     
@@ -346,5 +346,63 @@ EOF
     echo "Page par défaut protégée"
     echo "Utilisateur: $username"
     echo "Mot de passe: $password"
+    echo ""
+}
+
+export_ca_certificate() {
+    echo "--- Export certificat CA ---"
+    
+    if [ ! -f /etc/ssl/ca/ca-cert.pem ]; then
+        echo "Erreur: pas de certificat CA"
+        return 1
+    fi
+    
+    mkdir -p /var/www/html/ca-cert
+    
+    echo "Copie du certificat..."
+    cp /etc/ssl/ca/ca-cert.pem /var/www/html/ca-cert/ca-cert.crt
+    chmod 644 /var/www/html/ca-cert/ca-cert.crt
+    
+    echo "Création instructions..."
+    cat > /var/www/html/ca-cert/README.txt <<EOF
+COMMENT INSTALLER LE CERTIFICAT CA
+===================================
+
+Pour Windows:
+- Double clic sur ca-cert.crt
+- Installer le certificat
+- Choisir "Autorités de certification racines de confiance"
+
+Pour Linux:
+sudo cp ca-cert.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+
+Pour Firefox:
+Parametres > Certificats > Importer
+Cocher "Faire confiance pour les sites web"
+
+EOF
+    
+    cat > /var/www/html/ca-cert/index.html <<EOF
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Certificat CA</title>
+</head>
+<body>
+    <h1>Téléchargement Certificat CA</h1>
+    <p>Installez ce certificat pour éviter les erreurs SSL</p>
+    <a href="ca-cert.crt">Télécharger ca-cert.crt</a>
+    <br><br>
+    <a href="README.txt">Instructions</a>
+</body>
+</html>
+EOF
+    
+    chmod 644 /var/www/html/ca-cert/index.html
+    chmod 644 /var/www/html/ca-cert/README.txt
+    
+    echo ""
+    echo "Certificat exporté dans /var/www/html/ca-cert/"
     echo ""
 }
