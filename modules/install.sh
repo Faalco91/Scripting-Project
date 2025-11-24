@@ -1,4 +1,4 @@
-# Cette Fonction va permettre d'installer Apache2, PHP, MariaDB (autrement dis les prerequis de base) et toutes les extensions nécessaires
+# Cette fonction va permettre d'installer Apache2, PHP, MariaDB (autrement dis les prerequis de base) et toutes les extensions nécessaires
 
 install_prerequisites() {
     echo "----- Début installation des prérequis -----"
@@ -52,6 +52,63 @@ install_prerequisites() {
     apache2 -v | head -n 1
     echo "PHP : $(php -v | head -n 1)"
     echo "MariaDB : $(mysql --version)"
+}
+
+# Cette fonction sert à créer les bases de données pour Dolibarr et GLPI
+create_databases() {
+    echo "--- Création des bases de données pour Dolibarr et GLPI.. ---"
+    
+    # Variables pour Dolibarr
+    DOLIBARR_DB="dolibarr_db"
+    DOLIBARR_USER="dolibarr_user"
+    DOLIBARR_PASS="password123"
+    
+    # Variables pour GLPI
+    GLPI_DB="glpi_db"
+    GLPI_USER="glpi_user"
+    GLPI_PASS="password123"
+    
+    # Creation de la base Dolibarr
+    echo "Création de la base Dolibarr..."
+    mysql -u root <<EOF
+CREATE DATABASE IF NOT EXISTS $DOLIBARR_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '$DOLIBARR_USER'@'localhost' IDENTIFIED BY '$DOLIBARR_PASS';
+GRANT ALL PRIVILEGES ON $DOLIBARR_DB.* TO '$DOLIBARR_USER'@'localhost';
+FLUSH PRIVILEGES;
+EOF
+    
+    if [[ $? -ne 0 ]]; then
+        echo "Erreur lors de la création de la base Dolibarr"
+        return 1
+    fi
+    
+    echo "Base Dolibarr créée avec succès"
+    echo "  - Database: $DOLIBARR_DB"
+    echo "  - User: $DOLIBARR_USER"
+    echo "  - Password: $DOLIBARR_PASS"
+    echo ""
+    
+    # Creation de la base GLPI
+    echo "Création de la base GLPI..."
+    mysql -u root <<EOF
+CREATE DATABASE IF NOT EXISTS $GLPI_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '$GLPI_USER'@'localhost' IDENTIFIED BY '$GLPI_PASS';
+GRANT ALL PRIVILEGES ON $GLPI_DB.* TO '$GLPI_USER'@'localhost';
+FLUSH PRIVILEGES;
+EOF
+    
+    if [[ $? -ne 0 ]]; then
+        echo "Erreur lors de la création de la base GLPI"
+        return 1
+    fi
+    
+    echo "Base GLPI créer avec succès !"
+    echo "  - Database: $GLPI_DB"
+    echo "  - User: $GLPI_USER"
+    echo "  - Password: $GLPI_PASS"
+    echo ""
+    
+    echo "--- Création des bases de données terminée :) ---"
 }
 
 
