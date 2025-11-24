@@ -1,3 +1,9 @@
+#!/bin/bash
+
+# Module d'installation des solutions Dolibarr et GLPI
+# Part 1 du projet - Installation
+
+
 # Cette fonction va permettre d'installer Apache2, PHP, MariaDB (autrement dis les prerequis de base) et toutes les extensions nécessaires
 
 install_prerequisites() {
@@ -100,9 +106,6 @@ EOF
 }
 
 
-
-
-
 install_dolibarr() {
     echo "--- Début d'installation de Dolibarr ---"
     
@@ -145,28 +148,27 @@ install_dolibarr() {
     # On configure les permissions pour le dossier documents (obligatoire pour Dolibarr)
     chmod -R 775 "$DOLIBARR_DIR/documents"
     
-    # On crée le VirtualHost Apache
-    cat > /etc/apache2/sites-available/dolibarr.conf <<EOF
+    # On crée le VirtualHost Apache avec alias pour accès via localhost/dolibarr
+    cat > /etc/apache2/sites-available/dolibarr.conf <<'EOF'
 <VirtualHost *:80>
     ServerName dolibarr.local
-    DocumentRoot $DOLIBARR_DIR
     
-    <Directory $DOLIBARR_DIR>
+    Alias /dolibarr /var/www/html/dolibarr
+    
+    <Directory /var/www/html/dolibarr>
         Options -Indexes +FollowSymLinks
         AllowOverride All
         Require all granted
     </Directory>
     
-    ErrorLog \${APACHE_LOG_DIR}/dolibarr_error.log
-    CustomLog \${APACHE_LOG_DIR}/dolibarr_access.log combined
+    ErrorLog ${APACHE_LOG_DIR}/dolibarr_error.log
+    CustomLog ${APACHE_LOG_DIR}/dolibarr_access.log combined
 </VirtualHost>
 EOF
     
-    # On active le site
     a2ensite dolibarr.conf
     systemctl reload apache2
     
-    # On nettoie le dossier temporaire
     cd /
     rm -rf "$TEMP_DIR"
     
@@ -175,3 +177,75 @@ EOF
 }
 
 
+install_glpi() {
+    echo "--- Début d'installation de GLPI ---"
+    
+    GLPI_VERSION="11.0.2"
+    GLPI_URL="https://github.com/glpi-project/glpi/releases/download/${GLPI_VERSION}/glpi-${GLPI_VERSION}.tgz"
+    GLPI_DIR="/var/www/html/glpi"
+    TEMP_DIR="/tmp/glpi_install"
+    
+    # Creation du repertoire temp qui va nous permettre de stocker l'archive téléchargée et décompressée de GLPI
+    mkdir -p "$TEMP_DIR"
+    cd "$TEMP_DIR"
+    
+    # On télécharge GLPI
+    echo "Téléchargement de GLPI ${GLPI_VERSION}..."
+    wget -q --show-progress "$GLPI_URL" -O "glpi-${GLPI_VERSION}.tgz"
+    
+    if [ $? -ne 0 ]; then
+        echo "Erreur lors du téléchargement de GLPI"
+        return 1
+    fi
+    
+    # On extrait l'archive
+    tar -xzf "glpi-${GLPI_VERSION}.tgz"
+    
+    # On supprime l'ancien dossier si il existe
+    if [ -d "$GLPI_DIR" ]; then
+        echo "Suppression de l'ancienne installation..."
+        rm -rf "$GLPI_DIR"
+    fi
+    
+    # On déplace vers le repertoire web
+    mv glpi "$GLPI_DIR"
+    
+    # On configure les permissions
+    chown -R www-data:www-data "$GLPI_DIR"
+    chmod -R 755 "$GLPI_DIR"
+    # On configure les permissions pour les dossiers files et config (obligatoire pour GLPI)
+    chmod -R 775 "$GLPI_DIR/files"
+    chmod -R 775 "$GLPI_DIR/config"
+    
+    # On crée le VirtualHost Apache avec alias pour accès via localhost/glpi
+    cat > /etc/apache2/sites-available/glpi.conf <<'EOF'
+<VirtualHost *:80>
+    ServerName glpi.local
+    
+    Alias /glpi /var/www/html/glpi/public
+    
+    <Directory /var/www/html/glpi/public>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+        
+        RewriteEngine On
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteRule ^(.*)$ index.php [QSA,L]
+    </Directory>
+    
+    ErrorLog ${APACHE_LOG_DIR}/glpi_error.log
+    CustomLog ${APACHE_LOG_DIR}/glpi_access.log combined
+</VirtualHost>
+EOF
+    
+    a2ensite glpi.conf
+    systemctl reload apache2
+    
+    # On nettoie le dossier temporaire
+    cd /
+    rm -rf "$TEMP_DIR"
+    
+    echo "--- Installation GLPI terminée :) ---"
+    echo "  Vous pouvez accéder à GLPI via l'URL suivante: http://localhost/glpi"
+}
