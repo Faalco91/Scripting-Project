@@ -12,10 +12,9 @@ install_prerequisites() {
     # On verifie simplement si Apache est bien actif
     systemctl enable apache2
     systemctl start apache2
-    echo "Apache2 installé et démarré"
+    echo "Apache2 installé et démarré avec succès !"
     
-
-    echo "Installation de PHP avec les extensions..."
+    # On installe PHP avec les extensions nécessaires
     apt install -y php php-mysql php-gd php-curl php-xml php-zip \
             php-mbstring php-intl php-json php-ldap \
             php-cli php-common libapache2-mod-php
@@ -26,7 +25,7 @@ install_prerequisites() {
         return 1
     fi
 
-    echo "PHP installé avec les extensions"
+    echo "PHP installé avec succès !"
     
     # Installation MariaDB
     echo "Installation de MariaDB..."
@@ -35,10 +34,9 @@ install_prerequisites() {
     # demarrage de MariaDB
     systemctl enable mariadb
     systemctl start mariadb
-    echo "MariaDB a bien été installé et démarré"
+    echo "MariaDB est installé et démarré avec succès !"
     
     # activation des modules Apache necessaires
-    echo "Activation des modules Apache..."
     a2enmod rewrite
     a2enmod ssl
     a2enmod headers
@@ -46,19 +44,16 @@ install_prerequisites() {
     # restart Apache pour prendre en compte les changements
     systemctl restart apache2
     
-    echo "----- Installation des prérequis terminée -----"
-    echo ""
-    echo "Voici les versions installées:"
-    apache2 -v | head -n 1
-    echo "PHP : $(php -v | head -n 1)"
-    echo "MariaDB : $(mysql --version)"
+    echo "----- L'installation des prérequis terminée :) -----"
+
 }
+
 
 # Cette fonction sert à créer les bases de données pour Dolibarr et GLPI
 create_databases() {
     echo "--- Création des bases de données pour Dolibarr et GLPI.. ---"
     
-    # Variables pour Dolibarr
+    # Les variables de configuration pour Dolibarr
     DOLIBARR_DB="dolibarr_db"
     DOLIBARR_USER="dolibarr_user"
     DOLIBARR_PASS="password123"
@@ -68,7 +63,7 @@ create_databases() {
     GLPI_USER="glpi_user"
     GLPI_PASS="password123"
     
-    # Creation de la base Dolibarr
+    # On crée la base Dolibarr
     echo "Création de la base Dolibarr..."
     mysql -u root <<EOF
 CREATE DATABASE IF NOT EXISTS $DOLIBARR_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -82,11 +77,7 @@ EOF
         return 1
     fi
     
-    echo "Base Dolibarr créée avec succès"
-    echo "  - Database: $DOLIBARR_DB"
-    echo "  - User: $DOLIBARR_USER"
-    echo "  - Password: $DOLIBARR_PASS"
-    echo ""
+    echo "Base Dolibarr créée avec succès !"
     
     # Creation de la base GLPI
     echo "Création de la base GLPI..."
@@ -103,12 +94,84 @@ EOF
     fi
     
     echo "Base GLPI créer avec succès !"
-    echo "  - Database: $GLPI_DB"
-    echo "  - User: $GLPI_USER"
-    echo "  - Password: $GLPI_PASS"
-    echo ""
+
     
     echo "--- Création des bases de données terminée :) ---"
+}
+
+
+
+
+
+install_dolibarr() {
+    echo "--- Début d'installation de Dolibarr ---"
+    
+    DOLIBARR_VERSION="19.0.3"
+    DOLIBARR_URL="https://github.com/Dolibarr/dolibarr/archive/refs/tags/${DOLIBARR_VERSION}.tar.gz"
+    DOLIBARR_DIR="/var/www/html/dolibarr"
+    TEMP_DIR="/tmp/dolibarr_install"
+    
+    # Creation du repertoire temp qui va nous permettre de stocker l'archive téléchargée et décompressée de Dolibarr
+    mkdir -p "$TEMP_DIR"
+    cd "$TEMP_DIR"
+    
+    # On télécharge Dolibarr
+    echo "Téléchargement de Dolibarr ${DOLIBARR_VERSION}..."
+    wget -q --show-progress "$DOLIBARR_URL" -O "dolibarr-${DOLIBARR_VERSION}.tar.gz"
+    
+    if [[ $? -ne 0 ]]; then
+        echo "Erreur lors du téléchargement de Dolibarr"
+        return 1
+    fi
+    
+    # On extrait l'archive
+    tar -xzf "dolibarr-${DOLIBARR_VERSION}.tar.gz"
+    
+    # On supprime l'ancien dossier si il existe
+    if [[ -d "$DOLIBARR_DIR" ]]; then
+        echo "Suppression de l'ancienne installation..."
+        rm -rf "$DOLIBARR_DIR"
+    fi
+    
+    # On déplace vers le repertoire web
+    mv "dolibarr-${DOLIBARR_VERSION}/htdocs" "$DOLIBARR_DIR"
+    
+    # On crée le dossier documents (obligatoire pour Dolibarr)
+    mkdir -p "$DOLIBARR_DIR/documents"
+    
+    # On configure les permissions
+    chown -R www-data:www-data "$DOLIBARR_DIR"
+    chmod -R 755 "$DOLIBARR_DIR"
+    # On configure les permissions pour le dossier documents (obligatoire pour Dolibarr)
+    chmod -R 775 "$DOLIBARR_DIR/documents"
+    
+    # On crée le VirtualHost Apache
+    cat > /etc/apache2/sites-available/dolibarr.conf <<EOF
+<VirtualHost *:80>
+    ServerName dolibarr.local
+    DocumentRoot $DOLIBARR_DIR
+    
+    <Directory $DOLIBARR_DIR>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog \${APACHE_LOG_DIR}/dolibarr_error.log
+    CustomLog \${APACHE_LOG_DIR}/dolibarr_access.log combined
+</VirtualHost>
+EOF
+    
+    # On active le site
+    a2ensite dolibarr.conf
+    systemctl reload apache2
+    
+    # On nettoie le dossier temporaire
+    cd /
+    rm -rf "$TEMP_DIR"
+    
+    echo "--- Installation Dolibarr terminée :) ---"
+    echo "  Vous pouvez accéder à Dolibarr via l'URL suivante: http://localhost/dolibarr"
 }
 
 
