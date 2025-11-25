@@ -1,7 +1,62 @@
 #!/bin/bash
-source "$(dirname "$0")/modules/install.sh"
 
+# Chargement des modules
+source "$(dirname "$0")/modules/install.sh"
+source "$(dirname "$0")/modules/security.sh"
+source "$(dirname "$0")/modules/utils.sh"
+
+echo "========================================"
+echo "   DÉPLOIEMENT DOLIBARR & GLPI"
+echo "========================================"
+echo ""
+
+# Étape 1 : Installation des prérequis et solutions
 install_prerequisites
 create_databases
 install_dolibarr
 install_glpi
+
+echo ""
+echo "========================================"
+echo "   CONFIGURATION SÉCURITÉ SSL/TLS"
+echo "========================================"
+echo ""
+
+# Étape 2 : Mise en place de la sécurité
+create_ca
+generate_dolibarr_cert
+generate_glpi_cert
+configure_apache_ssl
+export_ca_certificate
+
+echo ""
+echo "========================================"
+echo "   AUTHENTIFICATION PAGE DÉFAUT"
+echo "========================================"
+echo ""
+
+# Étape 3 : Protection page par défaut
+setup_basic_auth
+
+echo ""
+echo "========================================"
+echo "   FINALISATION"
+echo "========================================"
+echo ""
+
+# Étape 4 : Configuration système
+configure_hosts
+restart_services
+
+echo ""
+echo "========================================"
+echo "   DÉPLOIEMENT TERMINÉ !"
+echo "========================================"
+echo ""
+echo "📋 Résumé des accès :"
+echo "  - https://dolibarr.local (certificat SSL)"
+echo "  - https://glpi.local (certificat SSL)"
+echo "  - http://localhost/ca-cert/ (télécharger le certificat CA)"
+echo ""
+echo "⚠️  N'oubliez pas d'installer le certificat CA sur vos postes clients !"
+echo ""
