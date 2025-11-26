@@ -1,12 +1,9 @@
 #!/bin/bash
 
-# Module utilitaire - Configuration système
 
-# Configuration /etc/hosts
 configure_hosts() {
     echo "--- Configuration /etc/hosts ---"
     
-    # Vérifier si les entrées existent déjà
     if grep -q "dolibarr.local" /etc/hosts && grep -q "glpi.local" /etc/hosts; then
         echo "Les entrées existent déjà dans /etc/hosts"
         return 0
@@ -19,7 +16,6 @@ configure_hosts() {
     echo "Configuration /etc/hosts terminée"
 }
 
-# Restart des services
 restart_services() {
     echo "--- Redémarrage des services ---"
     

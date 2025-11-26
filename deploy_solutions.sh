@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Chargement des modules
 source "$(dirname "$0")/modules/install.sh"
 source "$(dirname "$0")/modules/security.sh"
 source "$(dirname "$0")/modules/utils.sh"
@@ -10,7 +9,6 @@ echo "   DÉPLOIEMENT DOLIBARR & GLPI"
 echo "========================================"
 echo ""
 
-# Étape 1 : Installation des prérequis et solutions
 install_prerequisites
 create_databases
 install_dolibarr
@@ -22,7 +20,6 @@ echo "   CONFIGURATION SÉCURITÉ SSL/TLS"
 echo "========================================"
 echo ""
 
-# Étape 2 : Mise en place de la sécurité
 create_ca
 generate_dolibarr_cert
 generate_glpi_cert
@@ -35,7 +32,6 @@ echo "   AUTHENTIFICATION PAGE DÉFAUT"
 echo "========================================"
 echo ""
 
-# Étape 3 : Protection page par défaut
 setup_basic_auth
 
 echo ""
@@ -44,7 +40,6 @@ echo "   FINALISATION"
 echo "========================================"
 echo ""
 
-# Étape 4 : Configuration système
 configure_hosts
 restart_services
 

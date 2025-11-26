@@ -4,8 +4,6 @@
 # Part 1 du projet - Installation
 
 
-# Cette fonction va permettre d'installer Apache2, PHP, MariaDB (autrement dis les prerequis de base) et toutes les extensions nécessaires
-
 install_prerequisites() {
     echo "----- Début installation des prérequis -----"
     
@@ -15,17 +13,14 @@ install_prerequisites() {
     echo "Installation d'Apache2"
     apt install -y apache2
     
-    # On verifie simplement si Apache est bien actif
     systemctl enable apache2
     systemctl start apache2
     echo "Apache2 installé et démarré avec succès !"
     
-    # On installe PHP avec les extensions nécessaires
     apt install -y php php-mysql php-gd php-curl php-xml php-zip \
             php-mbstring php-intl php-json php-ldap \
             php-cli php-common libapache2-mod-php
 
-    # On verifie également si php est bien installé et activé
     if ! command -v php &> /dev/null; then
         echo "Erreur : PHP n'a pas pu être installé "
         return 1
@@ -33,21 +28,17 @@ install_prerequisites() {
 
     echo "PHP installé avec succès !"
     
-    # Installation MariaDB
     echo "Installation de MariaDB..."
     apt install -y mariadb-server mariadb-client
     
-    # demarrage de MariaDB
     systemctl enable mariadb
     systemctl start mariadb
     echo "MariaDB est installé et démarré avec succès !"
     
-    # activation des modules Apache necessaires
     a2enmod rewrite
     a2enmod ssl
     a2enmod headers
     
-    # restart Apache pour prendre en compte les changements
     systemctl restart apache2
     
     echo "----- L'installation des prérequis terminée :) -----"
@@ -55,21 +46,17 @@ install_prerequisites() {
 }
 
 
-# Cette fonction sert à créer les bases de données pour Dolibarr et GLPI
 create_databases() {
     echo "--- Création des bases de données pour Dolibarr et GLPI.. ---"
     
-    # Les variables de configuration pour Dolibarr
     DOLIBARR_DB="dolibarr_db"
     DOLIBARR_USER="dolibarr_user"
     DOLIBARR_PASS="password123"
     
-    # Variables pour GLPI
     GLPI_DB="glpi_db"
     GLPI_USER="glpi_user"
     GLPI_PASS="password123"
     
-    # On crée la base Dolibarr
     echo "Création de la base Dolibarr..."
     mysql -u root <<EOF
 CREATE DATABASE IF NOT EXISTS $DOLIBARR_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -85,7 +72,6 @@ EOF
     
     echo "Base Dolibarr créée avec succès !"
     
-    # Creation de la base GLPI
     echo "Création de la base GLPI..."
     mysql -u root <<EOF
 CREATE DATABASE IF NOT EXISTS $GLPI_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -114,11 +100,9 @@ install_dolibarr() {
     DOLIBARR_DIR="/var/www/html/dolibarr"
     TEMP_DIR="/tmp/dolibarr_install"
     
-    # Creation du repertoire temp qui va nous permettre de stocker l'archive téléchargée et décompressée de Dolibarr
     mkdir -p "$TEMP_DIR"
     cd "$TEMP_DIR"
     
-    # On télécharge Dolibarr
     echo "Téléchargement de Dolibarr ${DOLIBARR_VERSION}..."
     wget -q --show-progress "$DOLIBARR_URL" -O "dolibarr-${DOLIBARR_VERSION}.tar.gz"
     
@@ -127,28 +111,21 @@ install_dolibarr() {
         return 1
     fi
     
-    # On extrait l'archive
     tar -xzf "dolibarr-${DOLIBARR_VERSION}.tar.gz"
     
-    # On supprime l'ancien dossier si il existe
     if [[ -d "$DOLIBARR_DIR" ]]; then
         echo "Suppression de l'ancienne installation..."
         rm -rf "$DOLIBARR_DIR"
     fi
     
-    # On déplace vers le repertoire web
     mv "dolibarr-${DOLIBARR_VERSION}/htdocs" "$DOLIBARR_DIR"
     
-    # On crée le dossier documents (obligatoire pour Dolibarr)
     mkdir -p "$DOLIBARR_DIR/documents"
     
-    # On configure les permissions
     chown -R www-data:www-data "$DOLIBARR_DIR"
     chmod -R 755 "$DOLIBARR_DIR"
-    # On configure les permissions pour le dossier documents (obligatoire pour Dolibarr)
     chmod -R 775 "$DOLIBARR_DIR/documents"
     
-    # On crée le VirtualHost Apache avec alias pour accès via localhost/dolibarr
     cat > /etc/apache2/sites-available/dolibarr.conf <<'EOF'
 <VirtualHost *:80>
     ServerName dolibarr.local
@@ -185,11 +162,9 @@ install_glpi() {
     GLPI_DIR="/var/www/html/glpi"
     TEMP_DIR="/tmp/glpi_install"
     
-    # Creation du repertoire temp qui va nous permettre de stocker l'archive téléchargée et décompressée de GLPI
     mkdir -p "$TEMP_DIR"
     cd "$TEMP_DIR"
     
-    # On télécharge GLPI
     echo "Téléchargement de GLPI ${GLPI_VERSION}..."
     wget -q --show-progress "$GLPI_URL" -O "glpi-${GLPI_VERSION}.tgz"
     
@@ -198,26 +173,20 @@ install_glpi() {
         return 1
     fi
     
-    # On extrait l'archive
     tar -xzf "glpi-${GLPI_VERSION}.tgz"
     
-    # On supprime l'ancien dossier si il existe
     if [ -d "$GLPI_DIR" ]; then
         echo "Suppression de l'ancienne installation..."
         rm -rf "$GLPI_DIR"
     fi
     
-    # On déplace vers le repertoire web
     mv glpi "$GLPI_DIR"
     
-    # On configure les permissions
     chown -R www-data:www-data "$GLPI_DIR"
     chmod -R 755 "$GLPI_DIR"
-    # On configure les permissions pour les dossiers files et config (obligatoire pour GLPI)
     chmod -R 775 "$GLPI_DIR/files"
     chmod -R 775 "$GLPI_DIR/config"
     
-    # On crée le VirtualHost Apache avec alias pour accès via localhost/glpi
     cat > /etc/apache2/sites-available/glpi.conf <<'EOF'
 <VirtualHost *:80>
     ServerName glpi.local
@@ -242,7 +211,6 @@ EOF
     a2ensite glpi.conf
     systemctl reload apache2
     
-    # On nettoie le dossier temporaire
     cd /
     rm -rf "$TEMP_DIR"
     
